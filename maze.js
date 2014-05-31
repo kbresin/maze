@@ -242,19 +242,30 @@ function Maze(maxX, maxY, type, seed) {
 	} // end drawWalls()
 
 	this.moveToNode = function moveToNode(x,y,ctx) {
-		ctx.moveTo(this.offsetX+x*blockSize+blockSize*0.5,this.offsetY+y*blockSize+blockSize*0.5);
-	}
-	this.lineToNode = function lineToNode(x,y,ctx,dir,doubleBack) {
-		if(typeof(dir)==='undefined') dir = 'E';
-		if(typeof(doubleBack)==='undefined') doubleBack = false;
-		var additional_offsetX = 3;
-		var additional_offsetY = 3;
-		if (dir == 'N' || dir == 'E') additional_offsetX = -1*additional_offsetX;
-		if (dir == 'S' || dir == 'E') additional_offsetY = -1*additional_offsetY;
-		if ( this.rule == 'R' ) {
-			// TODO: logic swap S=E, N=W
+		var additional_offsetX = 2.5;
+		var additional_offsetY = 2.5;
+		if ( this.rule == 'L' ) {
 			additional_offsetX = -1*additional_offsetX;
 			additional_offsetY = -1*additional_offsetY;
+		} else if ( this.rule == 'R' ) {
+			additional_offsetX = -1*additional_offsetX;
+			additional_offsetY = additional_offsetY;
+			//
+		}
+		ctx.moveTo(additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
+	}
+	this.lineToNode = function lineToNode(x,y,ctx,dir,cornerType) {
+		if(typeof(dir)==='undefined') dir = 'E';
+		if(typeof(doubleBack)==='undefined') doubleBack = false;
+		var additional_offsetX = 2.5;
+		var additional_offsetY = 2.5;
+		if ( this.rule == 'L' ) {
+			if (dir == 'N' || dir == 'E') additional_offsetX = -1*additional_offsetX;
+			if (dir == 'S' || dir == 'E') additional_offsetY = -1*additional_offsetY;
+		} else if ( this.rule == 'R' ) {
+			// TODO: logic swap S=E, N=W
+			if (dir == 'S' || dir == 'E') additional_offsetX = -1*additional_offsetX;
+			if (dir == 'S' || dir == 'W') additional_offsetY = -1*additional_offsetY;
 		}
 //		if (false && backtrack_direction == 'W' || backtrack_direction == 'S') {
 //			additional_offsetX = additional_offsetX * -1;
@@ -262,13 +273,18 @@ function Maze(maxX, maxY, type, seed) {
 //		}
 //		alert(dir+" "+additional_offsetX+","+additional_offsetY);
 		ctx.lineTo(additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
-		if ( doubleBack ) {
+		if ( cornerType > 1 ) {
 			if ( dir == 'W' || dir == 'E' ) {
 				ctx.lineTo(-additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
-				ctx.lineTo(-additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,-additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
 			} else {
 				ctx.lineTo(additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,-additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
-				ctx.lineTo(-additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,-additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
+			}
+			if ( cornerType > 2 ) {
+				if ( dir == 'W' || dir == 'E' ) {
+					ctx.lineTo(-additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,-additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
+				} else {
+					ctx.lineTo(-additional_offsetX+this.offsetX+x*blockSize+blockSize*0.5,-additional_offsetY+this.offsetY+y*blockSize+blockSize*0.5);
+				}
 			}
 		} else if ( !this.node[x][y][dir] ) {
 //			if ( dir == 'W' || dir == 'E' ) {
@@ -315,9 +331,10 @@ function MazeSolution(maze, method ) {
 	}
 
 	// begin movePreference
-	this.movePreference = function movePreference() {
+	this.movePreference = function movePreference(dir) {
+		if(typeof(dir)==='undefined') dir = this.facing;
 		var facing_value;
-		switch(this.facing) {
+		switch(dir) {
 			case 'N':
 				facing_value = 0;
 				break;
@@ -405,6 +422,7 @@ function MazeSolution(maze, method ) {
 				alert('out of nodes!');
 			}
 		} else {
+			// TODO I think this if never gets called...
 			if ( found == 1 && this.backTrackNodes.indexOf(this.currentNode.orig) > -1 ) {
 				var backTrackCleanUp = this.backTrackNodes.indexOf(this.currentNode.orig);
 //				alert("removing "+this.backTrackNodes[backTrackCleanUp]);
@@ -419,9 +437,9 @@ function MazeSolution(maze, method ) {
 			this.path.push(this.currentNode.orig);
 		}
 	} // end nextStep
+	// TODO scoring
 
 	// begin drawSolution()
-	var total_dbs = new Array;
 	this.drawSolution = function drawSolution() {
 //		alert("drawing:"+this.path);
 		var c = document.getElementById("myCanvas");
@@ -430,8 +448,8 @@ function MazeSolution(maze, method ) {
 		ctx.lineWidth = 2;
 		ctx.strokeStyle = pathColor[this.method];
 //		ctx.strokeStyle = "rgba(0, 255, 0, 0.4)";;
-		var nodeCoord = new Coord(this.path[0]);
-		this.maze.moveToNode(nodeCoord.x,nodeCoord.y,ctx);
+		var startCoord = new Coord(this.path[0]);
+		this.maze.moveToNode(startCoord.x,startCoord.y,ctx);
 		var drawn = new Object;
 		var path_length = this.path.length;
 		var backtrack = false;
@@ -439,16 +457,25 @@ function MazeSolution(maze, method ) {
 			nodeCoord = new Coord(this.path[i]);
 //			if ( backtrack && (i+1) < path_length && !(this.path[i+1] in drawn) ) backtrack = false;
 			var dir = determineFacing(this.path[i-1],this.path[i]);
-			var doubleBack = false;
-			if ( (i+1) < path_length && (this.path[i-1] === this.path[i+1]) ) {
-				doubleBack = true;
-				total_dbs.push(this.path[i-1]);
+			var move_order = this.movePreference(dir);
+			var node = this.maze.node[nodeCoord.x][nodeCoord.y];
+			var cornerType = 0;
+			if ( !node[move_order[0]] && !node[move_order[1]] ) {
+				cornerType = 2;
+				if (!node[move_order[2]]) cornerType++;
 			}
+//			var doubleBack = false;
+//			if ( (i+1) < path_length && (this.path[i-1] === this.path[i+1]) ) {
+//				doubleBack = true;
+//			}
 				
 //			var backtrack_direction = false;
 //			if (backtrack) backtrack_direction = determineFacing(this.path[i-1],this.path[i]);
 //			drawn[this.path[i]] = true;
-			this.maze.lineToNode(nodeCoord.x,nodeCoord.y,ctx,dir, doubleBack);
+//			this.maze.lineToNode(nodeCoord.x,nodeCoord.y,ctx,dir, doubleBack);
+			// draw initial line
+			if ( i == 1 ) this.maze.lineToNode(startCoord.x,startCoord.y,ctx,dir);
+			this.maze.lineToNode(nodeCoord.x,nodeCoord.y,ctx,dir, cornerType);
 //			if ( !backtrack && (i+1) < path_length && i>0 && this.path[i-1] == this.path[i+1] ) { 
 //				backtrack = true
 //				backtrack_direction = determineFacing(this.path[i-1],this.path[i]);
@@ -456,7 +483,5 @@ function MazeSolution(maze, method ) {
 //			}
 		}
 		ctx.stroke();
-//		alert(total_dbs.join('|'));
-//		alert(this.path.join('|'));
 	}
 }
