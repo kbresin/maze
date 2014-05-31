@@ -1,0 +1,92 @@
+<HTML>
+<HEAD>
+<TITLE>Maze</TITLE>
+<script type="text/javascript" src="maze.js"></script>
+<script type="text/javascript">
+var gridSize = 4;
+var mazeSize = 5;
+
+var mazes = new Array(gridSize);
+function init() {
+	for ( var i=0; i<gridSize; i++) {
+		mazes[i] = new Array(gridSize);
+		for ( var j=0; j<gridSize; j++) {
+    		var myMaze = new Maze(5,5,0);
+			myMaze.setOffsetBlock(i,j);
+    		myMaze.drawWalls();
+			mazes[i][j] = myMaze;
+		}
+	}
+	solveAll();
+}
+function redraw() {
+	for ( var i=0; i<gridSize; i++) {
+		for ( var j=0; j<gridSize; j++) {
+    		mazes[i][j].drawWalls();
+		}
+	}
+	solveAll();
+}
+function solveAll() {
+	var currentX = 0;
+	var currentY = 0;
+	while ( currentX <= (gridSize-1) && currentY <= (gridSize-1) ) {
+		var solution = new MazeSolution(mazes[currentX][currentY]);
+//		solution = new MazeSolution(mazes[currentX][currentY]);
+		solution.addCornerGoals(currentX<(gridSize-1), currentY<(gridSize-1));
+		solution.solve();
+		solution.drawSolution();
+		if ( solution.endPoint.x == 0 ) {
+			currentY += 1;
+		} else if ( solution.endPoint.y != 0 ) {
+			currentX += 1;
+			currentY += 1;
+		} else {
+			currentX += 1;
+		}
+//	var solution = new MazeSolution(mazes[currentX][currentY]);
+//	solution = new MazeSolution(myMaze);
+//	solution.addCornerGoals();
+//	solution.solve();
+//	solution.drawSolution();
+	}
+//	alert(solution.currentNode);
+//	alert(solution.firstMove);
+}
+
+function clear() {
+    var canvas = document.getElementById("myCanvas");
+    var context = canvas.getContext("2d");
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height); // Clears the canvas
+}
+
+function doMouseDown(e){
+	var mouseX = e.pageX - this.offsetLeft;
+	var mouseY = e.pageY - this.offsetTop;
+
+	var i = gridSize-1;
+	var j = gridSize-1;
+	while ( i>0 && mazes[i][j].offsetX > mouseX ) i--;
+	while ( j>0 && mazes[i][j].offsetY > mouseY ) j--;
+
+	mazes[i][j].flipRule();
+	clear();
+	redraw();
+
+//  paint = true;
+//  addClick(e.pageX - this.offsetLeft, e.pageY - this.offsetTop);
+//  redraw();
+};
+
+
+</script>
+</HEAD>
+<BODY onload="init()" >
+<canvas id="myCanvas" width="400" height="400">
+</canvas>
+<script type="text/javascript">
+var canvas = document.getElementById("myCanvas");
+canvas.addEventListener("mousedown", doMouseDown, false);
+</script>
+</BODY>
+</HTML>
